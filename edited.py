@@ -34,8 +34,6 @@ test_df = pd.read_csv("D:/TS1/Cancer/sample_submission.csv")
 print('training:')
 print(train_df.head())
 
-id_label_map = {k:v for k,v in zip(train_df.id.values, train_df.label.values)}
-#print(id_label_map)
 #%% 
 # load files
 labeled_files = glob(trainDir +'*.tif')
@@ -55,17 +53,17 @@ model.add(Activation('relu'))
 model.add(MaxPooling2D(pool_size=(2, 2)))
 model.add(Dropout(0.1))
 
-model.add(Conv2D(16, (3, 3)))
+model.add(Conv2D(256, (3, 3)))
 model.add(Activation('relu'))
 model.add(MaxPooling2D(pool_size=(2, 2)))
 model.add(Dropout(0.1))
 
-model.add(Conv2D(32, (3, 3)))
+model.add(Conv2D(256, (3, 3)))
 model.add(Activation('relu'))
 model.add(MaxPooling2D(pool_size=(2, 2)))
 
 model.add(Flatten())
-model.add(Dense(32))
+model.add(Dense(128))
 model.add(Activation('relu'))
 model.add(Dropout(0.5))
 model.add(Dense(1))
@@ -111,19 +109,19 @@ print((test_generator[0].shape))
 H = model.fit_generator(train_generator, epochs=EPOCHS,
                         steps_per_epoch=train_generator.n//BATCHSIZE)
 
-#%%
-# debug 
-print(len(test_generator))
 
 #%%
 # predict
-pred = model.predict_on_batch(train_generator[0])
+pred = model.predict_on_batch(test_generator[0])
 print(pred)
 
 #%%
 # predict generator
-pred_gen = model.evaluate_generator(train_generator,steps=len(train_generator))
+pred_gen = model.predict_generator(test_generator,steps=len(test_generator))
 print(pred_gen)
+
+#%%
+print(pred_gen[1][0])
 #%%
 # saving model
 print("[INFO] saving model...")
@@ -132,23 +130,29 @@ model.save('model.model')
 model.save_weights('first_try.h5')
 
 #%%
-# prediction
-print("[INFO] making predictions")
-pred_gen = model.predict_generator(test_generator,steps=len(test_generator))
+# debug 
+print(type(pred_gen))
 
-print("----------------------------------------------------------")
-print("Predictions test: ")
-print(pred_gen)`
+#%%
+# merge to dataframe and output as .csv
+ids = test_df.id.values
+preds = [item[0] for item in pred_gen]
+print(len(ids) == len(preds))
+df = pd.DataFrame({'id': ids, 'label' : preds})
+df.to_csv('C:/Users/xc/Documents/GitHub/ts1/submit_predictions.csv', index = False)
+df.head()
 
-print("Predictions test over.. ")
-print("----------------------------------------------------------")
-
-# evaluation test
-print("[INFO] making evaluations")
-eval_test = model.evaluate(testX, trainLabels, batch_size=BATCHSIZE)
-print("----------------------------------------------------------")
-print("Evaluation test: ")
-print(pred_test)
-
-print("Evaluation test over.. ")
-print("----------------------------------------------------------")
+#%%
+# plot the training loss and accuracy
+plt.style.use("ggplot")
+plt.figure()
+N = EPOCHS
+plt.plot(np.arange(0, N), H.history["loss"], label="train_loss")
+plt.plot(np.arange(0, N), H.history["val_loss"], label="val_loss")
+plt.plot(np.arange(0, N), H.history["acc"], label="train_acc")
+plt.plot(np.arange(0, N), H.history["val_acc"], label="val_acc")
+plt.title("Training Loss and Accuracy on Cancer challenge")
+plt.xlabel("Epoch #")
+plt.ylabel("Loss/Accuracy")
+plt.legend(loc="lower left")
+plt.savefig('plot.png')
